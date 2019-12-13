@@ -1,9 +1,3 @@
-# Copyright (c) 2019, NVIDIA Corporation. All rights reserved.
-#
-# This work is made available under the Nvidia Source Code License-NC.
-# To view a copy of this license, visit
-# https://nvlabs.github.io/stylegan2/license.html
-
 """Helper for adding automatically tracked values to Tensorboard.
 
 Autosummary creates an identity op that internally keeps track of the input
@@ -22,14 +16,14 @@ Notes:
 """
 
 from collections import OrderedDict
+
 import numpy as np
 import tensorflow as tf
 from tensorboard import summary as summary_lib
 from tensorboard.plugins.custom_scalar import layout_pb2
 
 from . import tfutil
-from .tfutil import TfExpression
-from .tfutil import TfExpressionEx
+from .tfutil import TfExpression, TfExpressionEx
 
 # Enable "Custom scalars" tab in TensorBoard for advanced formatting.
 # Disabled by default to reduce tfevents file size.
@@ -61,11 +55,21 @@ def _create_var(name: str, value_expr: TfExpression) -> TfExpression:
         v = [size_expr, v, tf.square(v)]
     else:
         v = [size_expr, tf.reduce_sum(v), tf.reduce_sum(tf.square(v))]
-    v = tf.cond(tf.is_finite(v[1]), lambda: tf.stack(v), lambda: tf.zeros(3, dtype=_dtype))
+    v = tf.cond(
+        tf.is_finite(v[1]), lambda: tf.stack(v), lambda: tf.zeros(3, dtype=_dtype)
+    )
 
-    with tfutil.absolute_name_scope("Autosummary/" + name_id), tf.control_dependencies(None):
-        var = tf.Variable(tf.zeros(3, dtype=_dtype), trainable=False)  # [sum(1), sum(x), sum(x**2)]
-    update_op = tf.cond(tf.is_variable_initialized(var), lambda: tf.assign_add(var, v), lambda: tf.assign(var, v))
+    with tfutil.absolute_name_scope("Autosummary/" + name_id), tf.control_dependencies(
+        None
+    ):
+        var = tf.Variable(
+            tf.zeros(3, dtype=_dtype), trainable=False
+        )  # [sum(1), sum(x), sum(x**2)]
+    update_op = tf.cond(
+        tf.is_variable_initialized(var),
+        lambda: tf.assign_add(var, v),
+        lambda: tf.assign(var, v),
+    )
 
     if name in _vars:
         _vars[name].append(var)
@@ -74,7 +78,12 @@ def _create_var(name: str, value_expr: TfExpression) -> TfExpression:
     return update_op
 
 
-def autosummary(name: str, value: TfExpressionEx, passthru: TfExpressionEx = None, condition: TfExpressionEx = True) -> TfExpressionEx:
+def autosummary(
+    name: str,
+    value: TfExpressionEx,
+    passthru: TfExpressionEx = None,
+    condition: TfExpressionEx = True,
+) -> TfExpressionEx:
     """Create a new autosummary.
 
     Args:
@@ -96,8 +105,10 @@ def autosummary(name: str, value: TfExpressionEx, passthru: TfExpressionEx = Non
 
     if tfutil.is_tf_expression(value):
         with tf.name_scope("summary_" + name_id), tf.device(value.device):
-            condition = tf.convert_to_tensor(condition, name='condition')
-            update_op = tf.cond(condition, lambda: tf.group(_create_var(name, value)), tf.no_op)
+            condition = tf.convert_to_tensor(condition, name="condition")
+            update_op = tf.cond(
+                condition, lambda: tf.group(_create_var(name, value)), tf.no_op
+            )
             with tf.control_dependencies([update_op]):
                 return tf.identity(value if passthru is None else passthru)
 
@@ -106,7 +117,9 @@ def autosummary(name: str, value: TfExpressionEx, passthru: TfExpressionEx = Non
         assert not tfutil.is_tf_expression(condition)
         if condition:
             if name not in _immediate:
-                with tfutil.absolute_name_scope("Autosummary/" + name_id), tf.device(None), tf.control_dependencies(None):
+                with tfutil.absolute_name_scope("Autosummary/" + name_id), tf.device(
+                    None
+                ), tf.control_dependencies(None):
                     update_value = tf.placeholder(_dtype)
                     update_op = _create_var(name, update_value)
                     _immediate[name] = update_op, update_value
@@ -126,7 +139,9 @@ def finalize_autosummaries() -> None:
         return None
 
     _finalized = True
-    tfutil.init_uninitialized_vars([var for vars_list in _vars.values() for var in vars_list])
+    tfutil.init_uninitialized_vars(
+        [var for vars_list in _vars.values() for var in vars_list]
+    )
 
     # Create summary ops.
     with tf.device(None), tf.control_dependencies(None):
@@ -136,14 +151,22 @@ def finalize_autosummaries() -> None:
                 moments = tf.add_n(vars_list)
                 moments /= moments[0]
                 with tf.control_dependencies([moments]):  # read before resetting
-                    reset_ops = [tf.assign(var, tf.zeros(3, dtype=_dtype)) for var in vars_list]
-                    with tf.name_scope(None), tf.control_dependencies(reset_ops):  # reset before reporting
+                    reset_ops = [
+                        tf.assign(var, tf.zeros(3, dtype=_dtype)) for var in vars_list
+                    ]
+                    with tf.name_scope(None), tf.control_dependencies(
+                        reset_ops
+                    ):  # reset before reporting
                         mean = moments[1]
                         std = tf.sqrt(moments[2] - tf.square(moments[1]))
                         tf.summary.scalar(name, mean)
                         if enable_custom_scalars:
-                            tf.summary.scalar("xCustomScalars/" + name + "/margin_lo", mean - std)
-                            tf.summary.scalar("xCustomScalars/" + name + "/margin_hi", mean + std)
+                            tf.summary.scalar(
+                                "xCustomScalars/" + name + "/margin_lo", mean - std
+                            )
+                            tf.summary.scalar(
+                                "xCustomScalars/" + name + "/margin_hi", mean + std
+                            )
 
     # Setup layout for custom scalars.
     layout = None
@@ -164,15 +187,19 @@ def finalize_autosummaries() -> None:
             for chart_name, series_names in chart_dict.items():
                 series = []
                 for series_name in series_names:
-                    series.append(layout_pb2.MarginChartContent.Series(
-                        value=series_name,
-                        lower="xCustomScalars/" + series_name + "/margin_lo",
-                        upper="xCustomScalars/" + series_name + "/margin_hi"))
+                    series.append(
+                        layout_pb2.MarginChartContent.Series(
+                            value=series_name,
+                            lower="xCustomScalars/" + series_name + "/margin_lo",
+                            upper="xCustomScalars/" + series_name + "/margin_hi",
+                        )
+                    )
                 margin = layout_pb2.MarginChartContent(series=series)
                 charts.append(layout_pb2.Chart(title=chart_name, margin=margin))
             categories.append(layout_pb2.Category(title=cat_name, chart=charts))
         layout = summary_lib.custom_scalar_pb(layout_pb2.Layout(category=categories))
     return layout
+
 
 def save_summaries(file_writer, global_step=None):
     """Call FileWriter.add_summary() with all summaries in the default graph,
