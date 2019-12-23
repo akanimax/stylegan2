@@ -1,3 +1,5 @@
+from typing import Optional
+
 from . import submission
 from .submission.run_context import RunContext
 from .submission.submit import (
@@ -11,4 +13,5 @@ from .submission.submit import (
 )
 from .util import EasyDict
 
-submit_config: SubmitConfig = None  # Package level variable for SubmitConfig which is only valid when inside the run function.
+# Package level variable for SubmitConfig which is only valid when inside the run function.
+submit_config: Optional[SubmitConfig] = None

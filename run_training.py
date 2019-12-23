@@ -42,9 +42,14 @@ def run(
     gamma,
     mirror_augment,
     metrics,
+    resume_pkl=None,
+    resume_kimg=None,
 ):
     train = EasyDict(
-        run_func_name="training.training_loop.training_loop"
+        run_func_name="training.training_loop.training_loop",
+        # training resume options:
+        resume_pkl=resume_pkl,  # Network pickle to resume training from, None = train from scratch.
+        resume_kimg=resume_kimg,  # Assumed training progress at the beginning. Affects reporting and training schedule.
     )  # Options for training loop.
     G = EasyDict(
         func_name="training.networks_stylegan2.G_main"
@@ -267,6 +272,20 @@ def main():
         help='Comma-separated list of metrics or "none" (default: %(default)s)',
         default="fid50k",
         type=_parse_comma_sep,
+    )
+
+    parser.add_argument(
+        "--resume-pkl",
+        help="Pickle file used for resuming the training",
+        default=None,
+        type=str,
+    )
+
+    parser.add_argument(
+        "--resume-kimg",
+        help="Kimg of the previous run in case of resuming of the training",
+        default=None,
+        type=int,
     )
 
     args = parser.parse_args()

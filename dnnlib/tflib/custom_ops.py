@@ -43,7 +43,7 @@ def _get_compute_cap(device):
     m = re.search("compute capability: (\\d+).(\\d+)", caps_str)
     major = m.group(1)
     minor = m.group(2)
-    return (major, minor)
+    return major, minor
 
 
 def _get_cuda_gpu_arch_string():
@@ -67,6 +67,8 @@ def _run_cmd(cmd):
 
 def _prepare_nvcc_cli(opts):
     cmd = "nvcc " + opts.strip()
+    cmd += " -std=c++11"
+    cmd += " -DNDEBUG"
     cmd += " --disable-warnings"
     cmd += ' --include-path "%s"' % tf.sysconfig.get_include()
     cmd += ' --include-path "%s"' % os.path.join(
@@ -85,10 +87,11 @@ def _prepare_nvcc_cli(opts):
         # nvcc to use whatever is the default on Linux.
         if os.name == "nt":
             raise RuntimeError(
-                'Could not find MSVC/GCC/CLANG installation on this computer. Check compiler_bindir_search_path list in "%s".'
-                % __file__
+                "Could not find MSVC/GCC/CLANG installation on this computer. Check compiler_bindir_search_path list "
+                'in "%s". ' % __file__
             )
     else:
+        print("compiler_binder is not really a problem")
         cmd += ' --compiler-bindir "%s"' % compiler_bindir
     cmd += " 2>&1"
     return cmd

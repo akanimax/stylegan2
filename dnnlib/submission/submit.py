@@ -389,7 +389,8 @@ def submit_run(
     docker_valid_name_regex = "^[a-zA-Z0-9][a-zA-Z0-9_.-]+$"
     if not re.match(docker_valid_name_regex, submit_config.task_name):
         raise RuntimeError(
-            "Invalid task name.  Probable reason: unacceptable characters in your submit_config.run_desc.  Task name must be accepted by the following regex: "
+            "Invalid task name.  Probable reason: unacceptable characters in your submit_config.run_desc.  Task name "
+            "must be accepted by the following regex: "
             + docker_valid_name_regex
             + ", got "
             + submit_config.task_name
