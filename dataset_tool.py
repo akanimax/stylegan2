@@ -592,6 +592,7 @@ def create_celeba(tfrecord_dir, celeba_dir, cx=89, cy=121):
 
 
 def create_from_images(tfrecord_dir, image_dir, shuffle):
+    """ Note that the resize shouldn't corrupt the aspect ratio of the original images """
     print('Loading images from "%s"' % image_dir)
     image_filenames = sorted(glob.glob(os.path.join(image_dir, "*")))
     if len(image_filenames) == 0:
